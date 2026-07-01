@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terrain Sunset — Terrain-Aware Sunrise & Sunset</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="panel">
+    <h1>Terrain Sunset</h1>
+    <p class="subtitle">Sunrise & sunset times corrected for mountains, valleys, and Earth's curvature</p>
+
+    <div id="location-info">
+      <div class="coord-line">
+        <span>📍 <span id="lat-display">—</span>, <span id="lon-display">—</span></span>
+        <span class="elevation">⛰️ <span id="elev-display">—</span>m</span>
+      </div>
+    </div>
+
+    <div id="times-card">
+      <div class="time-row">
+        <div class="time-label">🌅 Sunrise</div>
+        <div class="time-values">
+          <div class="time-main" id="sunrise-time">—:—:—</div>
+          <div class="time-sub" id="sunrise-standard"></div>
+          <div class="time-diff" id="sunrise-diff"></div>
+        </div>
+      </div>
+      <div class="time-row">
+        <div class="time-label">☀️ Solar Noon</div>
+        <div class="time-values">
+          <div class="time-main" id="noon-time">—:—:—</div>
+        </div>
+      </div>
+      <div class="time-row">
+        <div class="time-label">🌇 Sunset</div>
+        <div class="time-values">
+          <div class="time-main" id="sunset-time">—:—:—</div>
+          <div class="time-sub" id="sunset-standard"></div>
+          <div class="time-diff" id="sunset-diff"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chart-container">
+      <canvas id="horizon-chart" width="300" height="300"></canvas>
+      <div id="chart-legend">
+        <div><span class="swatch sun"></span> Sun path</div>
+        <div><span class="swatch horizon"></span> Terrain horizon</div>
+        <div><span class="swatch visible"></span> Sun visible</div>
+      </div>
+    </div>
+
+    <div id="status">Click or drag the marker on the map to compute times.</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

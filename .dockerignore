@@ -1,0 +1,17 @@
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+terrain-sunset
+cmd/download/download
+
+# SRTM data (mounted at runtime)
+data/
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+*_test.go

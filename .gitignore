@@ -1,0 +1,9 @@
+# SRTM elevation tiles (~25 MB each, mounted at runtime)
+data/
+
+# Build artifacts
+terrain-sunset
+
+# IDE
+.vscode/
+.idea/
