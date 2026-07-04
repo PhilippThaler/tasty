@@ -16,7 +16,13 @@ let horizonProfile = null; // cached horizon elevations per azimuth
 
 // --- Initialize ---
 function init() {
-  map = L.map('map').setView([DEFAULT_LAT, DEFAULT_LON], 11);
+  const params = new URLSearchParams(window.location.search);
+  const startLat = parseFloat(params.get('lat')) || DEFAULT_LAT;
+  const startLon = parseFloat(params.get('lon')) || DEFAULT_LON;
+  currentLat = startLat;
+  currentLon = startLon;
+
+  map = L.map('map').setView([currentLat, currentLon], 11);
 
   // Dark tile layer (CartoDB dark)
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -25,12 +31,13 @@ function init() {
   }).addTo(map);
 
   // Draggable marker
-  marker = L.marker([DEFAULT_LAT, DEFAULT_LON], { draggable: true }).addTo(map);
+  marker = L.marker([currentLat, currentLon], { draggable: true }).addTo(map);
 
   marker.on('dragend', () => {
     const pos = marker.getLatLng();
     currentLat = pos.lat;
     currentLon = pos.lng;
+    updateUrl();
     updateDisplay();
   });
 
@@ -39,11 +46,31 @@ function init() {
     currentLat = pos.lat;
     currentLon = pos.lng;
     marker.setLatLng(pos);
+    updateUrl();
+    updateDisplay();
+  });
+
+  window.addEventListener('popstate', () => {
+    const params = new URLSearchParams(window.location.search);
+    const lat = parseFloat(params.get('lat')) || DEFAULT_LAT;
+    const lon = parseFloat(params.get('lon')) || DEFAULT_LON;
+    currentLat = lat;
+    currentLon = lon;
+    marker.setLatLng([currentLat, currentLon]);
+    map.setView([currentLat, currentLon]);
     updateDisplay();
   });
 
   // Initial load
   updateDisplay();
+}
+
+function updateUrl() {
+  const params = new URLSearchParams(window.location.search);
+  params.set('lat', currentLat.toFixed(4));
+  params.set('lon', currentLon.toFixed(4));
+  const newUrl = `${window.location.pathname}?${params.toString()}`;
+  window.history.replaceState({}, '', newUrl);
 }
 
 // --- API Calls ---
