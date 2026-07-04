@@ -220,14 +220,41 @@ function renderChart(profile, sunPath, sunNow) {
     ctx.fillText(elev + '°', cx + 3, cy - radius + 10);
   }
 
-  // Horizon profile: mountains live at low elevation, so near the outer ring.
+  // --- 1. Horizon profile (Fixed Donut Fill) ---
   if (profile && profile.elevations) {
-    ctx.beginPath();
     const steps = profile.elevations.length;
+
+    ctx.beginPath();
+    // Step A: Draw the mountain peak profile (Clockwise)
     for (let i = 0; i <= steps; i++) {
       const idx = i % steps;
-      const az = idx / steps * 360;
-      const elev = profile.elevations[idx];
+      const az = (idx / steps) * 360;
+      // Clamp mountain elevations to 0 here to ensure clean terrain base lines
+      const elev = Math.max(0, profile.elevations[idx]);
+      const r = elevToRadius(elev, maxR);
+      const rad = azToRad(az);
+      const x = cx + r * Math.sin(rad);
+      const y = cy - r * Math.cos(rad);
+
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+
+    // Step B: Draw the outer horizon ring (Counter-Clockwise)
+    // This connects the mountains to the outer edge, creating a fillable outer band.
+    ctx.arc(cx, cy, maxR, 2 * Math.PI, 0, true);
+    ctx.closePath();
+
+    // Fill the outer terrain band
+    ctx.fillStyle = 'rgba(255, 87, 34, 0.55)';
+    ctx.fill();
+
+    // Step C: Re-draw just the mountain ridge line so it gets a solid border
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const idx = i % steps;
+      const az = (idx / steps) * 360;
+      const elev = Math.max(0, profile.elevations[idx]);
       const r = elevToRadius(elev, maxR);
       const rad = azToRad(az);
       const x = cx + r * Math.sin(rad);
@@ -235,16 +262,20 @@ function renderChart(profile, sunPath, sunNow) {
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(255, 87, 34, 0.55)';
-    ctx.fill();
     ctx.strokeStyle = '#ff5722';
     ctx.lineWidth = 4;
     ctx.stroke();
   }
 
-  // Sun path
+  // --- 2. Sun path (Fixed with Clipping) ---
   if (sunPath && sunPath.points) {
+    // Clip the canvas to the maxR circle so nighttime points 
+    // don't bleed out over the rest of the UI.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, maxR, 0, 2 * Math.PI);
+    ctx.clip();
+
     const points = sunPath.points;
 
     // Build continuous sub-paths for visible (green) and non-visible (yellow) segments.
@@ -296,6 +327,9 @@ function renderChart(profile, sunPath, sunNow) {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+
+    // Remove the clip mask so the cardinal labels (N, E, S, W) can draw outside the circle
+    ctx.restore();
   }
 
   // Cardinal direction labels
@@ -326,8 +360,7 @@ function azToRad(az) {
 
 function elevToRadius(elev, maxR) {
   // Center of chart = zenith (90° elevation), outer ring = horizon (0°).
-  // Clamp negative elevations to the horizon ring.
-  const t = Math.max(0, Math.min(90, elev)) / 90;
+  const t = Math.min(90, elev) / 90;
   return (1 - t) * maxR;
 }
 
