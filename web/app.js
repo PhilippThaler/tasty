@@ -205,9 +205,9 @@ function renderChart(profile, sunPath, sunNow) {
 
   ctx.clearRect(0, 0, w, h);
 
-  // Background circles
-  for (let r = 30; r <= 90; r += 30) {
-    const radius = (r / 90) * maxR;
+  // Background circles: center = zenith (90°), outer ring = horizon (0°).
+  for (const elev of [30, 60]) {
+    const radius = elevToRadius(elev, maxR);
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
     ctx.strokeStyle = '#1e3a5f';
@@ -217,10 +217,10 @@ function renderChart(profile, sunPath, sunNow) {
     // Label
     ctx.fillStyle = '#556677';
     ctx.font = '9px sans-serif';
-    ctx.fillText(r + '°', cx + 3, cy - radius + 10);
+    ctx.fillText(elev + '°', cx + 3, cy - radius + 10);
   }
 
-  // Horizon profile
+  // Horizon profile: mountains live at low elevation, so near the outer ring.
   if (profile && profile.elevations) {
     ctx.beginPath();
     const steps = profile.elevations.length;
@@ -228,7 +228,7 @@ function renderChart(profile, sunPath, sunNow) {
       const idx = i % steps;
       const az = idx / steps * 360;
       const elev = profile.elevations[idx];
-      const r = Math.max(0, Math.min(maxR, ((elev + 10) / 100) * maxR));
+      const r = elevToRadius(elev, maxR);
       const rad = azToRad(az);
       const x = cx + r * Math.sin(rad);
       const y = cy - r * Math.cos(rad);
@@ -275,7 +275,7 @@ function renderChart(profile, sunPath, sunNow) {
       else hiddenPaths.push(current);
     }
 
-    // Draw hidden (below-horizon) portions in yellow.
+    // Draw hidden (below-horizon/blocked) portions in yellow.
     ctx.strokeStyle = '#ffb300';
     ctx.lineWidth = 2;
     for (const path of hiddenPaths) drawPath(ctx, path);
@@ -324,8 +324,15 @@ function azToRad(az) {
   return (Math.PI / 180) * (90 - az);
 }
 
+function elevToRadius(elev, maxR) {
+  // Center of chart = zenith (90° elevation), outer ring = horizon (0°).
+  // Clamp negative elevations to the horizon ring.
+  const t = Math.max(0, Math.min(90, elev)) / 90;
+  return (1 - t) * maxR;
+}
+
 function polarToCanvas(az, elev, cx, cy, maxR) {
-  const r = Math.max(0, Math.min(maxR, ((elev + 10) / 100) * maxR));
+  const r = elevToRadius(elev, maxR);
   const rad = azToRad(az);
   return {
     x: cx + r * Math.sin(rad),
