@@ -53,12 +53,30 @@ type ElevationProvider interface {
 // provider supplies ground elevation data (typically an srtm.Manager).
 func Compute(provider ElevationProvider, lat, lon float64) *Profile {
 	baseElev := provider.Elevation(lat, lon)
-	if math.IsNaN(baseElev) {
+	noData := math.IsNaN(baseElev)
+	if noData {
 		baseElev = 0 // assume sea level if no data
 	}
 
 	steps := defaultAzimuthSteps
 	elevs := make([]float64, steps)
+
+	// If we have no elevation data for the observer location, we cannot
+	// compute a terrain horizon. Return a flat sea-level horizon so that
+	// corrected times match standard times.
+	if noData {
+		for i := range elevs {
+			elevs[i] = 0
+		}
+		return &Profile{
+			Lat:        lat,
+			Lon:        lon,
+			Elevation:  0, // no SRTM data available
+			AzSteps:    steps,
+			Elevations: elevs,
+		}
+	}
+
 	progress := make(chan int, steps)
 
 	azStep := 360.0 / float64(steps)
