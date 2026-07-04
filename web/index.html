@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>Terrain Sunset — Terrain-Aware Sunrise & Sunset</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/style.css?v=2" />
 </head>
 <body>
   <div id="map"></div>
@@ -49,9 +50,10 @@
     <div id="chart-container">
       <canvas id="horizon-chart" width="300" height="300"></canvas>
       <div id="chart-legend">
-        <div><span class="swatch sun"></span> Sun path</div>
+        <div><span class="swatch visible"></span> Sun above horizon</div>
+        <div><span class="swatch sun"></span> Sun below horizon</div>
         <div><span class="swatch horizon"></span> Terrain horizon</div>
-        <div><span class="swatch visible"></span> Sun visible</div>
+        <div><span class="swatch current"></span> Current sun</div>
       </div>
     </div>
 
@@ -59,6 +61,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=2"></script>
 </body>
 </html>

@@ -105,7 +105,12 @@ async function updateDisplay() {
 // --- Render Times ---
 
 function renderTimes(times) {
-  document.getElementById('elev-display').textContent = Math.round(times.elevation);
+  const elevEl = document.getElementById('elev-display');
+  if (times.elevation === undefined || times.elevation === null) {
+    elevEl.textContent = '—';
+  } else {
+    elevEl.textContent = Math.round(times.elevation);
+  }
 
   // Helper: parse ISO8601 and format as local time
   function fmtLocal(iso) {

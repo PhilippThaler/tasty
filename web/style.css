@@ -131,7 +131,8 @@ h1 {
 #chart-legend {
   display: flex;
   justify-content: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 12px;
   font-size: 0.75rem;
   color: #aaa;
@@ -149,6 +150,7 @@ h1 {
 .swatch.sun { background: #ffb300; }
 .swatch.horizon { background: #4fc3f7; }
 .swatch.visible { background: #66bb6a; }
+.swatch.current { background: #ff9800; border-radius: 50%; }
 
 #status {
   font-size: 0.8rem;
