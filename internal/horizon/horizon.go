@@ -38,10 +38,11 @@ const (
 // Profile is the computed horizon profile: horizon elevation in degrees for
 // each azimuth bin (evenly spaced around the full circle).
 type Profile struct {
-	Lat, Lon    float64   // observer location
-	Elevation   float64   // observer's ground elevation (meters)
-	AzSteps     int       // number of azimuth bins
-	Elevations  []float64 // horizon elevation (degrees) per azimuth bin, length = AzSteps
+	Lat        float64   `json:"lat"`        // observer location
+	Lon        float64   `json:"lon"`        // observer location
+	Elevation  float64   `json:"elevation"`  // observer's ground elevation (meters)
+	AzSteps    int       `json:"azSteps"`    // number of azimuth bins
+	Elevations []float64 `json:"elevations"` // horizon elevation (degrees) per azimuth bin, length = AzSteps
 }
 
 // ElevationProvider is the interface for querying ground elevation.
