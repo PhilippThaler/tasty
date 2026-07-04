@@ -197,9 +197,16 @@ function renderChart(profile, sunPath, sunNow) {
   if (profile && profile.elevations) {
     ctx.beginPath();
     const steps = profile.elevations.length;
+    let maxElev = -Infinity;
+    let maxIdx = 0;
     for (let i = 0; i <= steps; i++) {
-      const az = (i % steps) / steps * 360;
-      const elev = profile.elevations[i % steps];
+      const idx = i % steps;
+      const az = idx / steps * 360;
+      const elev = profile.elevations[idx];
+      if (elev > maxElev) {
+        maxElev = elev;
+        maxIdx = idx;
+      }
       const r = Math.max(0, Math.min(maxR, ((elev + 10) / 100) * maxR));
       const rad = azToRad(az);
       const x = cx + r * Math.sin(rad);
@@ -213,6 +220,20 @@ function renderChart(profile, sunPath, sunNow) {
     ctx.strokeStyle = '#ff5722';
     ctx.lineWidth = 4;
     ctx.stroke();
+
+    // Label the highest terrain point so users can find it.
+    if (maxElev > 0) {
+      const labelAz = maxIdx / steps * 360;
+      const labelR = Math.max(0, Math.min(maxR, ((maxElev + 10) / 100) * maxR));
+      const labelRad = azToRad(labelAz);
+      const lx = cx + labelR * Math.sin(labelRad);
+      const ly = cy - labelR * Math.cos(labelRad);
+      ctx.fillStyle = '#ffccbc';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('terrain', lx, ly);
+    }
   }
 
   // Sun path
