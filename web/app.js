@@ -208,10 +208,10 @@ function renderChart(profile, sunPath, sunNow) {
       else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.fillStyle = 'rgba(233, 30, 99, 0.35)';
+    ctx.fillStyle = 'rgba(255, 87, 34, 0.55)';
     ctx.fill();
-    ctx.strokeStyle = '#e91e63';
-    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#ff5722';
+    ctx.lineWidth = 4;
     ctx.stroke();
   }
 
