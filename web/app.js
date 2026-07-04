@@ -68,6 +68,12 @@ async function fetchSunPath(lat, lon, date) {
   return resp.json();
 }
 
+async function fetchSunNow(lat, lon) {
+  const resp = await fetch(`${API}/sunnow?lat=${lat}&lon=${lon}`);
+  if (!resp.ok) throw new Error(`sunnow API: ${resp.status}`);
+  return resp.json();
+}
+
 // --- Update Display ---
 
 async function updateDisplay() {
@@ -78,16 +84,17 @@ async function updateDisplay() {
   document.getElementById('lon-display').textContent = currentLon.toFixed(4);
 
   try {
-    // Fetch horizon profile and times in parallel.
-    const [profile, times, sunPath] = await Promise.all([
+    // Fetch horizon profile, times, sun path, and current sun position in parallel.
+    const [profile, times, sunPath, sunNow] = await Promise.all([
       fetchHorizon(currentLat, currentLon),
       fetchTimes(currentLat, currentLon),
       fetchSunPath(currentLat, currentLon),
+      fetchSunNow(currentLat, currentLon),
     ]);
 
     horizonProfile = profile;
     renderTimes(times);
-    renderChart(profile, sunPath);
+    renderChart(profile, sunPath, sunNow);
     status.textContent = '';
   } catch (err) {
     console.error(err);
@@ -155,7 +162,7 @@ function setDiffClass(id, minutes) {
 
 // --- Render Polar Chart ---
 
-function renderChart(profile, sunPath) {
+function renderChart(profile, sunPath, sunNow) {
   const canvas = document.getElementById('horizon-chart');
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
@@ -206,55 +213,54 @@ function renderChart(profile, sunPath) {
   // Sun path
   if (sunPath && sunPath.points) {
     const points = sunPath.points;
-    let started = false;
+
+    // Build continuous sub-paths for visible (green) and non-visible (yellow) segments.
+    const visiblePaths = [];
+    const hiddenPaths = [];
+    let current = null;
+    let currentVisible = null;
 
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
-      const az = p.azimuth;
-      const elev = p.elevation;
-      const r = Math.max(0, Math.min(maxR, ((elev + 10) / 100) * maxR));
-      const rad = azToRad(az);
-      const x = cx + r * Math.sin(rad);
-      const y = cy - r * Math.cos(rad);
+      const pt = polarToCanvas(p.azimuth, p.elevation, cx, cy, maxR);
 
-      if (!started) {
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        started = true;
-      }
-
-      if (p.visible) {
-        ctx.strokeStyle = '#66bb6a';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y);
+      if (current === null) {
+        current = [pt];
+        currentVisible = p.visible;
+      } else if (p.visible === currentVisible) {
+        current.push(pt);
       } else {
-        // Below horizon portion
-        ctx.lineTo(x, y);
-        ctx.strokeStyle = '#ffb300';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y);
+        // Visibility changed — store current path and start new one.
+        if (currentVisible) visiblePaths.push(current);
+        else hiddenPaths.push(current);
+        current = [current[current.length - 1], pt];
+        currentVisible = p.visible;
       }
     }
-    ctx.stroke();
+    if (current !== null) {
+      if (currentVisible) visiblePaths.push(current);
+      else hiddenPaths.push(current);
+    }
 
-    // Sun position dot at current time (approximate by finding closest point)
-    if (points.length > 0) {
-      const mid = points[Math.floor(points.length / 2)];
-      const midAz = mid.azimuth;
-      const midR = Math.max(0, Math.min(maxR, ((mid.elevation + 10) / 100) * maxR));
-      const midRad = azToRad(midAz);
-      const mx = cx + midR * Math.sin(midRad);
-      const my = cy - midR * Math.cos(midRad);
+    // Draw hidden (below-horizon) portions in yellow.
+    ctx.strokeStyle = '#ffb300';
+    ctx.lineWidth = 2;
+    for (const path of hiddenPaths) drawPath(ctx, path);
+
+    // Draw visible (above-horizon) portions in green.
+    ctx.strokeStyle = '#66bb6a';
+    ctx.lineWidth = 2;
+    for (const path of visiblePaths) drawPath(ctx, path);
+
+    // Sun position dot at current time.
+    if (sunNow && sunNow.azimuth !== undefined && sunNow.elevation !== undefined) {
+      const pt = polarToCanvas(sunNow.azimuth, sunNow.elevation, cx, cy, maxR);
       ctx.beginPath();
-      ctx.arc(mx, my, 5, 0, 2 * Math.PI);
+      ctx.arc(pt.x, pt.y, 6, 0, 2 * Math.PI);
       ctx.fillStyle = '#ff9800';
       ctx.fill();
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
   }
@@ -283,6 +289,25 @@ function azToRad(az) {
   // Canvas: 0 radians = right (East), π/2 = down (South).
   // Conversion: canvas_angle = π/2 - az_rad = π/2 - (az * π/180)
   return (Math.PI / 180) * (90 - az);
+}
+
+function polarToCanvas(az, elev, cx, cy, maxR) {
+  const r = Math.max(0, Math.min(maxR, ((elev + 10) / 100) * maxR));
+  const rad = azToRad(az);
+  return {
+    x: cx + r * Math.sin(rad),
+    y: cy - r * Math.cos(rad),
+  };
+}
+
+function drawPath(ctx, points) {
+  if (points.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+  ctx.stroke();
 }
 
 // --- Boot ---

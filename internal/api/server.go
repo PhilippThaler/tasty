@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/philippthaler/terrain-sunset/internal/horizon"
+	"github.com/philippthaler/terrain-sunset/internal/sun"
 	"github.com/philippthaler/terrain-sunset/internal/srtm"
 )
 
@@ -35,6 +36,7 @@ func (s *Server) RegisterRoutes(mux *http.ServeMux, staticDir string) {
 	mux.HandleFunc("GET /api/horizon", s.handleHorizon)
 	mux.HandleFunc("GET /api/times", s.handleTimes)
 	mux.HandleFunc("GET /api/sunpath", s.handleSunPath)
+	mux.HandleFunc("GET /api/sunnow", s.handleSunNow)
 	mux.HandleFunc("GET /api/elevation", s.handleElevation)
 
 	// Serve frontend static files.
@@ -151,6 +153,24 @@ func (s *Server) handleElevation(w http.ResponseWriter, r *http.Request) {
 		"lat":       lat,
 		"lon":       lon,
 		"elevation": elevVal,
+	})
+}
+
+// GET /api/sunnow?lat=47.2&lon=11.3
+func (s *Server) handleSunNow(w http.ResponseWriter, r *http.Request) {
+	lat, lon, err := parseLatLon(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	now := time.Now().UTC()
+	pos := sun.At(now, lat, lon)
+
+	writeJSON(w, map[string]any{
+		"time":      now.Format(time.RFC3339),
+		"azimuth":   pos.Azimuth,
+		"elevation": pos.Elevation,
 	})
 }
 
