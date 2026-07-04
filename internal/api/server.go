@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -64,7 +65,11 @@ func (s *Server) handleTimes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	date := parseDate(r)
+	date, err := parseDate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	profile := s.getOrComputeProfile(lat, lon)
 	corrected := horizon.CorrectDay(date, lat, lon, profile)
 
@@ -112,7 +117,11 @@ func (s *Server) handleSunPath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	date := parseDate(r)
+	date, err := parseDate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	profile := s.getOrComputeProfile(lat, lon)
 	points := horizon.SunPath(date, lat, lon, profile)
 
@@ -133,10 +142,15 @@ func (s *Server) handleElevation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	elev := s.srtm.Elevation(lat, lon)
-	writeJSON(w, map[string]float64{
+	// NaN is not valid JSON — send null instead.
+	var elevVal any = elev
+	if math.IsNaN(elev) {
+		elevVal = nil
+	}
+	writeJSON(w, map[string]any{
 		"lat":       lat,
 		"lon":       lon,
-		"elevation": elev,
+		"elevation": elevVal,
 	})
 }
 
@@ -171,7 +185,7 @@ func parseLatLon(r *http.Request) (float64, float64, error) {
 	return lat, lon, nil
 }
 
-func parseDate(r *http.Request) time.Time {
+func parseDate(r *http.Request) (time.Time, error) {
 	dateStr := r.URL.Query().Get("date")
 	tzStr := r.URL.Query().Get("tz")
 
@@ -183,14 +197,14 @@ func parseDate(r *http.Request) time.Time {
 	}
 
 	if dateStr == "" {
-		return time.Now().In(loc)
+		return time.Now().In(loc), nil
 	}
 
 	t, err := time.ParseInLocation("2006-01-02", dateStr, loc)
 	if err != nil {
-		return time.Now().In(loc)
+		return time.Time{}, fmt.Errorf("invalid date %q (use YYYY-MM-DD): %w", dateStr, err)
 	}
-	return t
+	return t, nil
 }
 
 func fmtTime(t time.Time) string {

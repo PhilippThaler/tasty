@@ -9,7 +9,7 @@ import (
 
 const (
 	sunAngularRadius = 0.27 // degrees, apparent radius of the solar disk
-	searchWindow     = 4 * time.Hour
+	searchWindow     = 12 * time.Hour // wide enough for extreme terrain (e.g. deep valleys)
 )
 
 // CorrectedTimes holds terrain-corrected sun event times.
@@ -39,9 +39,11 @@ func CorrectDay(date time.Time, lat, lon float64, profile *Profile) CorrectedTim
 		Standard: std,
 	}
 
+	// Handle polar day/night (standard times may not exist at high latitudes).
 	if std.Sunrise.IsZero() || std.Sunset.IsZero() {
-		result.AlwaysUp = std.Sunrise.IsZero() && std.SolarNoon.Hour() < 12
-		result.AlwaysDown = std.Sunrise.IsZero() && !result.AlwaysUp
+		noonPos := sun.At(std.SolarNoon, lat, lon)
+		result.AlwaysUp = noonPos.Elevation > 0
+		result.AlwaysDown = noonPos.Elevation <= 0
 		return result
 	}
 
@@ -57,6 +59,17 @@ func CorrectDay(date time.Time, lat, lon float64, profile *Profile) CorrectedTim
 	result.Sunset = findFirstTransition(std.Sunset, searchWindow, lat, lon, profile, false)
 	if !result.Sunset.IsZero() {
 		result.SunsetDelay = result.Sunset.Sub(std.Sunset)
+	}
+
+	// If neither transition was found, the terrain permanently blocks or exposes the sun.
+	if result.Sunrise.IsZero() && result.Sunset.IsZero() {
+		noonPos := sun.At(std.SolarNoon, lat, lon)
+		noonHorizon := profile.HorizonElevation(noonPos.Azimuth)
+		if noonPos.Elevation > noonHorizon {
+			result.AlwaysUp = true
+		} else {
+			result.AlwaysDown = true
+		}
 	}
 
 	return result
@@ -84,12 +97,7 @@ func findFirstTransition(refTime time.Time, window time.Duration,
 		sp := sun.At(t, lat, lon)
 		horizonElev := profile.HorizonElevation(sp.Azimuth)
 
-		limbElev := sp.Elevation
-		if rising {
-			limbElev += sunAngularRadius // upper limb
-		} else {
-			limbElev -= sunAngularRadius // upper limb for sunset
-		}
+		limbElev := sp.Elevation + sunAngularRadius // upper limb touches first
 
 		above := limbElev > horizonElev
 
