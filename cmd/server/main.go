@@ -27,6 +27,7 @@ func main() {
 
 	// Load SRTM tiles.
 	mgr := srtm.NewManager(*dataDir)
+	mgr.SetAutoDownload(true)
 	if err := mgr.Preload(); err != nil {
 		log.Printf("warning: could not preload tiles: %v", err)
 		log.Printf("you can download tiles with: go run ./cmd/download -lat <lat> -lon <lon> -dir %s", *dataDir)

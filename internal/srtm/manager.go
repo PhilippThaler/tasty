@@ -11,17 +11,27 @@ import (
 // Manager loads and caches SRTM tiles from a data directory.
 // It automatically loads neighboring tiles as needed during horizon ray tracing.
 type Manager struct {
-	mu    sync.RWMutex
-	dir   string            // directory containing .hgt files
-	tiles map[string]*Tile  // cache: tile name → loaded tile
+	mu           sync.RWMutex
+	dir          string           // directory containing .hgt files
+	tiles        map[string]*Tile // cache: tile name → loaded tile
+	autoDownload bool             // download missing tiles on demand
+
+	dlMu        sync.Mutex
+	downloading map[string]*sync.Mutex // per-neighborhood download locks
 }
 
 // NewManager creates a tile manager that reads .hgt files from dir.
 func NewManager(dir string) *Manager {
 	return &Manager{
-		dir:   dir,
-		tiles: make(map[string]*Tile),
+		dir:         dir,
+		tiles:       make(map[string]*Tile),
+		downloading: make(map[string]*sync.Mutex),
 	}
+}
+
+// SetAutoDownload enables or disables on-demand downloading of missing tiles.
+func (m *Manager) SetAutoDownload(enabled bool) {
+	m.autoDownload = enabled
 }
 
 // Elevation returns the elevation at (lat, lon). Loads the appropriate tile
@@ -67,6 +77,8 @@ func (m *Manager) Preload() error {
 }
 
 // getTile returns the tile covering (lat, lon), loading it from disk if needed.
+// If auto-download is enabled and the tile is missing, it downloads the 3×3
+// neighborhood first.
 func (m *Manager) getTile(lat, lon float64) (*Tile, error) {
 	name := tileName(lat, lon)
 
@@ -76,6 +88,14 @@ func (m *Manager) getTile(lat, lon float64) (*Tile, error) {
 	m.mu.RUnlock()
 	if ok {
 		return tile, nil
+	}
+
+	// Try to download missing tiles if enabled.
+	if m.autoDownload {
+		if err := m.downloadNeighborhood(lat, lon); err != nil {
+			// Log but continue — maybe the tile exists locally or download failed.
+			fmt.Fprintf(os.Stderr, "srtm: auto-download failed for %s: %v\n", name, err)
+		}
 	}
 
 	// Slow path: load from disk with write lock.
@@ -94,6 +114,26 @@ func (m *Manager) getTile(lat, lon float64) (*Tile, error) {
 	}
 	m.tiles[name] = tile
 	return tile, nil
+}
+
+// downloadNeighborhood downloads the 3×3 tile block around (lat, lon), using a
+// per-neighborhood lock so concurrent requests for the same area only download
+// once.
+func (m *Manager) downloadNeighborhood(lat, lon float64) error {
+	key := tileName(lat, lon)
+
+	m.dlMu.Lock()
+	mu, ok := m.downloading[key]
+	if !ok {
+		mu = &sync.Mutex{}
+		m.downloading[key] = mu
+	}
+	m.dlMu.Unlock()
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	return DownloadNeighborhood(m.dir, lat, lon)
 }
 
 // tileName returns the SRTM tile name for a coordinate.

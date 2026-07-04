@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -86,14 +87,21 @@ func DownloadTile(dir string, lat, lon float64) (string, error) {
 
 // DownloadNeighborhood downloads the 3×3 block of tiles surrounding (lat, lon).
 // This ensures we have all tiles needed for horizon ray tracing up to ~100 km.
+// Tiles are downloaded concurrently.
 func DownloadNeighborhood(dir string, lat, lon float64) error {
+	var wg sync.WaitGroup
 	for dlat := -1; dlat <= 1; dlat++ {
 		for dlon := -1; dlon <= 1; dlon++ {
-			if _, err := DownloadTile(dir, lat+float64(dlat), lon+float64(dlon)); err != nil {
-				// Don't fail on missing tiles (oceans etc.)
-				fmt.Fprintf(os.Stderr, "srtm: skip tile at d(%d,%d): %v\n", dlat, dlon, err)
-			}
+			wg.Add(1)
+			go func(dla, dlo int) {
+				defer wg.Done()
+				if _, err := DownloadTile(dir, lat+float64(dla), lon+float64(dlo)); err != nil {
+					// Don't fail on missing tiles (oceans etc.)
+					fmt.Fprintf(os.Stderr, "srtm: skip tile at d(%d,%d): %v\n", dla, dlo, err)
+				}
+			}(dlat, dlon)
 		}
 	}
+	wg.Wait()
 	return nil
 }
