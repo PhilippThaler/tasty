@@ -119,3 +119,35 @@ func TestSunPathNoPanics(t *testing.T) {
 		}
 	}
 }
+
+func TestSunPathSummerNorthernHemisphere(t *testing.T) {
+	// In Northern Hemisphere summer the sun rises in the NE and sets in the NW,
+	// passing south at noon.
+	date := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	profile := Compute(constantElevProvider{elev: 0}, 46.45, -10.09)
+	points := SunPath(date, 46.45, -10.09, profile)
+
+	minAz, maxAz := 360.0, 0.0
+	maxElev := -90.0
+	for _, p := range points {
+		if p.Azimuth < minAz {
+			minAz = p.Azimuth
+		}
+		if p.Azimuth > maxAz {
+			maxAz = p.Azimuth
+		}
+		if p.Elevation > maxElev {
+			maxElev = p.Elevation
+		}
+	}
+
+	if minAz > 60 {
+		t.Errorf("minimum azimuth = %.1f°, expected sunrise azimuth < 60° (NE)", minAz)
+	}
+	if maxAz < 300 {
+		t.Errorf("maximum azimuth = %.1f°, expected sunset azimuth > 300° (NW)", maxAz)
+	}
+	if maxElev < 60 {
+		t.Errorf("maximum elevation = %.1f°, expected solar noon elevation > 60°", maxElev)
+	}
+}

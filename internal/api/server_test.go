@@ -52,6 +52,32 @@ func TestHandleTimesInvalidLat(t *testing.T) {
 	}
 }
 
+func TestHandleSunNow(t *testing.T) {
+	srv := newTestServer()
+	mux := http.NewServeMux()
+	srv.RegisterRoutes(mux, "")
+
+	req := httptest.NewRequest("GET", "/api/sunnow?lat=46.4530&lon=-10.0915", nil)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rr.Code)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	az, ok := resp["azimuth"].(float64)
+	if !ok {
+		t.Fatal("expected numeric azimuth")
+	}
+	if az < 0 || az >= 360 {
+		t.Errorf("azimuth out of range: %.2f", az)
+	}
+}
+
 func TestHandleTimesInvalidDate(t *testing.T) {
 	srv := newTestServer()
 	mux := http.NewServeMux()
