@@ -12,6 +12,16 @@ const (
 	searchWindow     = 12 * time.Hour // wide enough for extreme terrain (e.g. deep valleys)
 )
 
+// atmosphericRefraction returns the approximate refraction in degrees for a
+// geometric elevation. Near the horizon this lifts the apparent sun by ~0.5°.
+// Uses Saemundsson's formula. Valid for elevations above about -5°.
+func atmosphericRefraction(elevDeg float64) float64 {
+	if elevDeg < -5 {
+		return 0
+	}
+	return 0.0167 / math.Tan((elevDeg+10.3/(elevDeg+5.11))*math.Pi/180.0)
+}
+
 // CorrectedTimes holds terrain-corrected sun event times.
 type CorrectedTimes struct {
 	// Standard times (sea-level, no terrain).
@@ -97,9 +107,11 @@ func findFirstTransition(refTime time.Time, window time.Duration,
 		sp := sun.At(t, lat, lon)
 		horizonElev := profile.HorizonElevation(sp.Azimuth)
 
-		limbElev := sp.Elevation + sunAngularRadius // upper limb touches first
+		// Apparent elevation includes the solar disk (upper limb) and atmospheric
+		// refraction. This matches how standard sunrise/sunset times are defined.
+		apparentElev := sp.Elevation + sunAngularRadius + atmosphericRefraction(sp.Elevation)
 
-		above := limbElev > horizonElev
+		above := apparentElev > horizonElev
 
 		if !first {
 			if rising && !prevAbove && above {
@@ -167,14 +179,14 @@ func SunPath(date time.Time, lat, lon float64, profile *Profile) []SunPathPoint 
 	for t := start; t.Before(end) || t.Equal(end); t = t.Add(interval) {
 		sp := sun.At(t, lat, lon)
 		horizonElev := profile.HorizonElevation(sp.Azimuth)
-		limbElev := sp.Elevation // center elevation for display
 
-		visible := sp.Elevation > horizonElev
+		apparentElev := sp.Elevation + atmosphericRefraction(sp.Elevation)
+		visible := apparentElev > horizonElev
 
 		points = append(points, SunPathPoint{
 			Time:           t,
 			Azimuth:        round(sp.Azimuth, 2),
-			Elevation:      round(limbElev, 2),
+			Elevation:      round(sp.Elevation, 2),
 			TerrainHorizon: round(horizonElev, 2),
 			Visible:        visible,
 		})
